@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced Robot with 4-Claw Gripper</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      background: #f0f0f0;
+    }
+    #container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    #header {
+      background: linear-gradient(to right, #2563eb, #9333ea);
+      color: white;
+      padding: 16px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    #header h1 {
+      font-size: 24px;
+      font-weight: bold;
+    }
+    #header p {
+      font-size: 14px;
+      margin-top: 4px;
+      opacity: 0.95;
+    }
+    #viewport {
+      flex: 1;
+      position: relative;
+      cursor: move;
+    }
+    #canvas {
+      width: 100%;
+      height: 100%;
+    }
+    .panel {
+      position: absolute;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      padding: 16px;
+    }
+    #controls {
+      top: 16px;
+      right: 16px;
+      width: 280px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    #features {
+      bottom: 16px;
+      left: 16px;
+      max-width: 500px;
+    }
+    #legend {
+      top: 16px;
+      left: 16px;
+    }
+    .panel h3 {
+      font-size: 18px;
+      font-weight: bold;
+      color: #1f2937;
+      margin-bottom: 12px;
+    }
+    .panel h4 {
+      font-size: 14px;
+      font-weight: bold;
+      color: #1f2937;
+      margin-bottom: 8px;
+    }
+    .control-group {
+      margin-bottom: 16px;
+    }
+    .control-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 4px;
+    }
+    .control-label.highlight {
+      color: #ea580c;
+    }
+    input[type="range"] {
+      width: 100%;
+      margin: 4px 0;
+    }
+    .status-text {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-open {
+      background: #16a34a;
+      color: white;
+    }
+    .btn-open:hover {
+      background: #15803d;
+    }
+    .btn-close {
+      background: #dc2626;
+      color: white;
+    }
+    .btn-close:hover {
+      background: #b91c1c;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      font-size: 12px;
+      color: #374151;
+    }
+    .feature-section p {
+      margin: 2px 0;
+    }
+    .feature-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .feature-title.blue { color: #2563eb; }
+    .feature-title.orange { color: #ea580c; }
+    .feature-title.purple { color: #9333ea; }
+    .feature-title.gray { color: #4b5563; }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      margin: 6px 0;
+    }
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
+    .divider {
+      border-top: 1px solid #d1d5db;
+      margin: 12px 0;
+      padding-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="header">
+      <h1>Advanced Robot with 4-Claw Gripper & Articulated Arm</h1>
+      <p>Rotating Turret • Multi-Joint Arm • Synchronized 4-Finger Gripper with Suction & Magnet</p>
+    </div>
+    
+    <div id="viewport">
+      <div id="canvas"></div>
+      
+      <div id="controls" class="panel">
+        <h3>Arm Controls</h3>
+        
+        <div class="control-group">
+          <label class="control-label">Base Rotation: <span id="base-val">0</span>°</label>
+          <input type="range" id="base" min="-180" max="180" value="0">
+        </div>
+        
+        <div class="control-group">
+          <label class="control-label">Shoulder Angle: <span id="shoulder-val">45</span>°</label>
+          <input type="range" id="shoulder" min="-90" max="90" value="45">
+        </div>
+        
+        <div class="control-group">
+          <label class="control-label">Elbow Angle: <span id="elbow-val">-60</span>°</label>
+          <input type="range" id="elbow" min="-120" max="0" value="-60">
+        </div>
+        
+        <div class="control-group">
+          <label class="control-label">Wrist Tilt: <span id="wrist-tilt-val">30</span>°</label>
+          <input type="range" id="wrist-tilt" min="-45" max="90" value="30">
+        </div>
+        
+        <div class="control-group">
+          <label class="control-label">Wrist Roll: <span id="wrist-roll-val">0</span>°</label>
+          <input type="range" id="wrist-roll" min="-45" max="45" value="0">
+        </div>
+        
+        <div class="control-group divider">
+          <label class="control-label highlight">Grip: <span id="grip-val">0</span>% <span id="magnet-status"></span></label>
+          <input type="range" id="grip" min="0" max="100" value="0">
+          <p class="status-text" id="grip-status">Fully Open</p>
+        </div>
+        
+        <div class="button-group">
+          <button class="btn-open" onclick="setGrip(0)">Open</button>
+          <button class="btn-close" onclick="setGrip(100)">Close</button>
+        </div>
+      </div>
+      
+      <div id="legend" class="panel">
+        <h4>Components</h4>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #757575;"></div>
+          <span>Arm Links & Joints</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #FF6F00;"></div>
+          <span>Claw Fingers</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #1a1a1a;"></div>
+          <span>Rubber Pads</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #1565C0;"></div>
+          <span>Electromagnet</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #FFC107;"></div>
+          <span>Sample Objects</span>
+        </div>
+      </div>
+      
+      <div id="features" class="panel">
+        <h3>Robot Features</h3>
+        <div class="feature-grid">
+          <div class="feature-section">
+            <p class="feature-title blue">ARM SYSTEM</p>
+            <p>• 360° rotating turret</p>
+            <p>• Shoulder + elbow joints</p>
+            <p>• 2-axis wrist (tilt/roll)</p>
+            <p>• ~27cm total reach</p>
+          </div>
+          <div class="feature-section">
+            <p class="feature-title orange">4-CLAW GRIPPER</p>
+            <p>• 4 synchronized fingers</p>
+            <p>• 3 segments per claw</p>
+            <p>• Realistic finger curl</p>
+            <p>• 90° claw spacing</p>
+          </div>
+          <div class="feature-section">
+            <p class="feature-title purple">GRIP FEATURES</p>
+            <p>• Suction cups (tips)</p>
+            <p>• Central electromagnet</p>
+            <p>• Rubber grip pads</p>
+            <p>• Self-centering motion</p>
+          </div>
+          <div class="feature-section">
+            <p class="feature-title gray">MOBILITY</p>
+            <p>• 4WD differential drive</p>
+            <p>• 25×25cm chassis</p>
+            <p>• Omnidirectional reach</p>
+            <p>• Competition ready</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let scene, camera, renderer;
+    let armBase, shoulder, elbow, wrist;
+    let claws = [];
+    let isDragging = false;
+    let lastPos = { x: 0, y: 0 };
+    let rotation = { x: -0.5, y: 0.8 };
+
+    function init() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf0f0f0);
+
+      const viewport = document.getElementById('canvas');
+      camera = new THREE.PerspectiveCamera(50, viewport.clientWidth / viewport.clientHeight, 0.1, 1000);
+      camera.position.set(50, 40, 50);
+      camera.lookAt(0, 15, 0);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      viewport.appendChild(renderer.domElement);
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(30, 50, 30);
+      directionalLight.castShadow = true;
+      directionalLight.shadow.mapSize.width = 2048;
+      directionalLight.shadow.mapSize.height = 2048;
+      directionalLight.shadow.camera.left = -50;
+      directionalLight.shadow.camera.right = 50;
+      directionalLight.shadow.camera.top = 50;
+      directionalLight.shadow.camera.bottom = -50;
+      scene.add(directionalLight);
+
+      const gridHelper = new THREE.GridHelper(80, 40, 0x888888, 0xcccccc);
+      scene.add(gridHelper);
+
+      createRobot();
+      setupControls();
+      animate();
+
+      window.addEventListener('resize', onResize);
+      viewport.addEventListener('mousedown', onMouseDown);
+      viewport.addEventListener('mousemove', onMouseMove);
+      viewport.addEventListener('mouseup', onMouseUp);
+      viewport.addEventListener('mouseleave', onMouseUp);
+    }
+
+    function createRobot() {
+      const chassisMat = new THREE.MeshStandardMaterial({ color: 0x2196F3, metalness: 0.3, roughness: 0.6 });
+      const motorMat = new THREE.MeshStandardMaterial({ color: 0x424242, metalness: 0.7, roughness: 0.3 });
+      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x212121, metalness: 0.2, roughness: 0.8 });
+      const armMat = new THREE.MeshStandardMaterial({ color: 0x757575, metalness: 0.6, roughness: 0.4 });
+      const jointMat = new THREE.MeshStandardMaterial({ color: 0x424242, metalness: 0.8, roughness: 0.3 });
+      const clawMat = new THREE.MeshStandardMaterial({ color: 0xFF6F00, metalness: 0.5, roughness: 0.5 });
+      const rubberMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.1, roughness: 0.9 });
+      const magnetMat = new THREE.MeshStandardMaterial({ color: 0x1565C0, metalness: 0.7, roughness: 0.4 });
+
+      const chassis = new THREE.Mesh(new THREE.BoxGeometry(25, 0.5, 25), chassisMat);
+      chassis.position.y = 4;
+      chassis.castShadow = true;
+      chassis.receiveShadow = true;
+      scene.add(chassis);
+
+      const motorPositions = [[-9, 9], [9, 9], [-9, -9], [9, -9]];
+      motorPositions.forEach(([x, z]) => {
+        const motor = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 4), motorMat);
+        motor.position.set(x, 4, z);
+        motor.castShadow = true;
+        scene.add(motor);
+      });
+
+      const wheelPositions = [[-12, 9], [12, 9], [-12, -9], [12, -9]];
+      wheelPositions.forEach(([x, z]) => {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3.5, 2, 32), wheelMat);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(x, 4, z);
+        wheel.castShadow = true;
+        scene.add(wheel);
+      });
+
+      const casterWheel = new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 16), wheelMat);
+      casterWheel.position.set(0, 1.5, 11);
+      casterWheel.castShadow = true;
+      scene.add(casterWheel);
+
+      const battery = new THREE.Mesh(new THREE.BoxGeometry(8, 3, 6), new THREE.MeshStandardMaterial({ color: 0x4CAF50 }));
+      battery.position.set(0, 6, 0);
+      battery.castShadow = true;
+      scene.add(battery);
+
+      armBase = new THREE.Group();
+      armBase.position.set(0, 4.5, 0);
+      scene.add(armBase);
+
+      const turretBase = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 2, 32), jointMat);
+      turretBase.castShadow = true;
+      armBase.add(turretBase);
+
+      const turretTop = new THREE.Mesh(new THREE.CylinderGeometry(3, 4, 1, 32), armMat);
+      turretTop.position.y = 1.5;
+      turretTop.castShadow = true;
+      armBase.add(turretTop);
+
+      shoulder = new THREE.Group();
+      shoulder.position.set(0, 2, 0);
+      armBase.add(shoulder);
+
+      const shoulderJoint = new THREE.Mesh(new THREE.SphereGeometry(2, 32, 32), jointMat);
+      shoulderJoint.castShadow = true;
+      shoulder.add(shoulderJoint);
+
+      const lowerArmLength = 15;
+      const lowerArm = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.5, lowerArmLength, 16), armMat);
+      lowerArm.position.y = lowerArmLength / 2;
+      lowerArm.castShadow = true;
+      shoulder.add(lowerArm);
+
+      elbow = new THREE.Group();
+      elbow.position.set(0, lowerArmLength, 0);
+      shoulder.add(elbow);
+
+      const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 32), jointMat);
+      elbowJoint.castShadow = true;
+      elbow.add(elbowJoint);
+
+      const upperArmLength = 12;
+      const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.2, upperArmLength, 16), armMat);
+      upperArm.position.y = upperArmLength / 2;
+      upperArm.castShadow = true;
+      elbow.add(upperArm);
+
+      wrist = new THREE.Group();
+      wrist.position.set(0, upperArmLength, 0);
+      elbow.add(wrist);
+
+      const wristJoint = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 32), jointMat);
+      wristJoint.castShadow = true;
+      wrist.add(wristJoint);
+
+      const wristMount = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 2, 16), armMat);
+      wristMount.position.y = 1;
+      wristMount.castShadow = true;
+      wrist.add(wristMount);
+
+      const gripperHub = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 1.5, 32), jointMat);
+      gripperHub.position.y = 2.5;
+      gripperHub.castShadow = true;
+      wrist.add(gripperHub);
+
+      const magnet = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.8, 32), magnetMat);
+      magnet.position.y = -1.2;
+      magnet.castShadow = true;
+      gripperHub.add(magnet);
+
+      for (let i = 0; i < 4; i++) {
+        const claw = createClaw((i * Math.PI) / 2, clawMat, jointMat, rubberMat);
+        gripperHub.add(claw.group);
+        claws.push(claw);
+      }
+
+      const sampleCube = new THREE.Mesh(
+        new THREE.BoxGeometry(5, 5, 5),
+        new THREE.MeshStandardMaterial({ color: 0xFFC107, metalness: 0.8, roughness: 0.3 })
+      );
+      sampleCube.position.set(20, 2.5, 0);
+      sampleCube.castShadow = true;
+      scene.add(sampleCube);
+
+      const sampleCylinder = new THREE.Mesh(
+        new THREE.CylinderGeometry(2.5, 2.5, 6, 32),
+        new THREE.MeshStandardMaterial({ color: 0x4CAF50, metalness: 0.3, roughness: 0.7 })
+      );
+      sampleCylinder.position.set(-20, 3, 0);
+      sampleCylinder.castShadow = true;
+      scene.add(sampleCylinder);
+    }
+
+    function createClaw(angle, clawMat, jointMat, rubberMat) {
+      const clawGroup = new THREE.Group();
+      clawGroup.rotation.y = angle;
+      
+      const baseHinge = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), jointMat);
+      baseHinge.position.set(0, 0, 2.5);
+      baseHinge.castShadow = true;
+      clawGroup.add(baseHinge);
+
+      const seg1Group = new THREE.Group();
+      seg1Group.position.set(0, 0, 2.5);
+      clawGroup.add(seg1Group);
+
+      const seg1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 3), clawMat);
+      seg1.position.z = 1.5;
+      seg1.castShadow = true;
+      seg1Group.add(seg1);
+
+      const pad1 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 2.8), rubberMat);
+      pad1.position.set(0, 0, 1.5);
+      seg1Group.add(pad1);
+
+      const knuckle1 = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), jointMat);
+      knuckle1.position.z = 3;
+      seg1Group.add(knuckle1);
+
+      const seg2Group = new THREE.Group();
+      seg2Group.position.z = 3;
+      seg1Group.add(seg2Group);
+
+      const seg2 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 2.5), clawMat);
+      seg2.position.z = 1.25;
+      seg2.castShadow = true;
+      seg2Group.add(seg2);
+
+      const pad2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.35, 2.3), rubberMat);
+      pad2.position.set(0, 0, 1.25);
+      seg2Group.add(pad2);
+
+      const knuckle2 = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), jointMat);
+      knuckle2.position.z = 2.5;
+      seg2Group.add(knuckle2);
+
+      const seg3Group = new THREE.Group();
+      seg3Group.position.z = 2.5;
+      seg2Group.add(seg3Group);
+
+      const seg3 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 2), clawMat);
+      seg3.position.z = 1;
+      seg3.castShadow = true;
+      seg3Group.add(seg3);
+
+      const suctionMount = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16), jointMat);
+      suctionMount.position.z = 2.2;
+      suctionMount.castShadow = true;
+      seg3Group.add(suctionMount);
+
+      const suctionCup = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), rubberMat);
+      suctionCup.position.z = 2.5;
+      suctionCup.rotation.x = Math.PI;
+      suctionCup.castShadow = true;
+      seg3Group.add(suctionCup);
+
+      return { group: clawGroup, seg1: seg1Group, seg2: seg2Group, seg3: seg3Group };
+    }
+
+    function setupControls() {
+      const baseSlider = document.getElementById('base');
+      const shoulderSlider = document.getElementById('shoulder');
+      const elbowSlider = document.getElementById('elbow');
+      const wristTiltSlider = document.getElementById('wrist-tilt');
+      const wristRollSlider = document.getElementById('wrist-roll');
+      const gripSlider = document.getElementById('grip');
+
+      baseSlider.addEventListener('input', (e) => {
+        const val = e.target.value;
+        document.getElementById('base-val').textContent = val;
+        armBase.rotation.y = (val * Math.PI) / 180;
+      });
+
+      shoulderSlider.addEventListener('input', (e) => {
+        const val = e.target.value;
+        document.getElementById('shoulder-val').textContent = val;
+        shoulder.rotation.z = (val * Math.PI) / 180;
+      });
+
+      elbowSlider.addEventListener('input', (e) => {
+        const val = e.target.value;
+        document.getElementById('elbow-val').textContent = val;
+        elbow.rotation.z = (val * Math.PI) / 180;
+      });
+
+      wristTiltSlider.addEventListener('input', (e) => {
+        const val = e.target.value;
+        document.getElementById('wrist-tilt-val').textContent = val;
+        wrist.rotation.z = (val * Math.PI) / 180;
+      });
+
+      wristRollSlider.addEventListener('input', (e) => {
+        const val = e.target.value;
+        document.getElementById('wrist-roll-val').textContent = val;
+        wrist.rotation.y = (val * Math.PI) / 180;
+      });
+
+      gripSlider.addEventListener('input', (e) => {
+        updateGrip(e.target.value / 100);
+      });
+    }
+
+    function updateGrip(gripValue) {
+      document.getElementById('grip-val').textContent = Math.round(gripValue * 100);
+      
+      const baseOpen = 10, baseClosed = 75;
+      const seg1Open = 0, seg1Closed = 35;
+      const seg2Open = 0, seg2Closed = 50;
+      const seg3Open = 0, seg3Closed = 60;
+
+      const baseAngle = baseOpen + gripValue * (baseClosed - baseOpen);
+      const seg1Angle = seg1Open + gripValue * (seg1Closed - seg1Open);
+      const seg2Angle = seg2Open + gripValue * (seg2Closed - seg2Open);
+      const seg3Angle = seg3Open + gripValue * (seg3Closed - seg3Open);
+
+      claws.forEach((claw) => {
+        claw.group.rotation.x = (baseAngle * Math.PI) / 180;
+        claw.seg1.rotation.z = (seg1Angle * Math.PI) / 180;
+        claw.seg2.rotation.z = (seg2Angle * Math.PI) / 180;
+        claw.seg3.rotation.z = (seg3Angle * Math.PI) / 180;
+      });
+
+      const magnetActive = gripValue > 0.8;
+      document.getElementById('magnet-status').textContent = magnetActive ? '🧲 MAGNET ON' : '';
+      
+      let status = 'Fully Open';
+      if (gripValue >= 0.7) status = 'Gripping';
+      else if (gripValue >= 0.3) status = 'Closing...';
+      document.getElementById('grip-status').textContent = status;
+    }
+
+    function setGrip(value) {
+      document.getElementById('grip').value = value;
+      updateGrip(value / 100);
+    }
+
+    function updateCamera() {
+      const r = 70;
+      camera.position.x = r * Math.sin(rotation.y) * Math.cos(rotation.x);
+      camera.position.y = r * Math.sin(rotation.x) + 20;
+      camera.position.z = r * Math.cos(rotation.y) * Math.cos(rotation.x);
+      camera.lookAt(0, 15, 0);
+    }
+
+    function onMouseDown(e) {
+      isDragging = true;
+      lastPos = { x: e.clientX, y: e.clientY };
+    }
+
+    function onMouseMove(e) {
+      if (!isDragging) return;
+      const dx = e.clientX - lastPos.x;
+      const dy = e.clientY - lastPos.y;
+      rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, rotation.x + dy * 0.01));
+      rotation.y = rotation.y + dx * 0.01;
+      lastPos = { x: e.clientX, y: e.clientY };
+      updateCamera();
+    }
+
+    function onMouseUp() {
+      isDragging = false;
+    }
+
+    function onResize() {
+      const viewport = document.getElementById('canvas');
+      camera.aspect = viewport.clientWidth / viewport.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+</body>
+</html>
